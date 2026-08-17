@@ -80,11 +80,17 @@ Image:
 medialab:0.4.0
 ```
 
-Build-Archiv:
+### Empfohlen: ein einziges Upload-Archiv
+
+Für Portainer unter **Images → Build a new image → Upload** genügt jetzt genau eine Datei:
 
 ```text
-medialab-0.4.0-build.tar.gz
+medialab-portainer-upload-0.4.0.tar.gz
 ```
+
+Das Archiv enthält bereits den `Dockerfile` und das interne Build-Archiv im korrekten Build-Kontext. In Portainer nur den Image-Namen `medialab:0.4.0` setzen, die TAR.GZ-Datei auswählen und **Build the image** starten.
+
+Das bisherige `medialab-0.4.0-build.tar.gz` bleibt für den Web-Editor bzw. manuelle Builds verfügbar, ist aber **nicht** als alleinige Datei für Portainers Upload-Methode gedacht.
 
 Das vorhandene externe NAS-Volume `Videos` kann unverändert weiterverwendet werden.
 
