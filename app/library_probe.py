@@ -10,6 +10,7 @@ from .catalog import MediaCatalog
 from .config import Settings
 from .media_probe import MediaProbe, ProbeError
 from .parser import VIDEO_EXTENSIONS
+from .path_filters import is_ignored_media_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,30 +22,17 @@ def _now() -> str:
 class LibraryProbeManager:
     """Background ffprobe analysis for the existing media collection."""
 
-    def __init__(
-        self,
-        settings: Settings,
-        media_probe: MediaProbe,
-        catalog: MediaCatalog,
-    ) -> None:
+    def __init__(self, settings: Settings, media_probe: MediaProbe, catalog: MediaCatalog) -> None:
         self.settings = settings
         self.media_probe = media_probe
         self.catalog = catalog
         self._task: asyncio.Task[None] | None = None
         self._cancel = asyncio.Event()
         self._state: dict[str, Any] = {
-            "running": False,
-            "scope": "",
-            "total": 0,
-            "completed": 0,
-            "probed": 0,
-            "cached": 0,
-            "errors": 0,
-            "current": "",
-            "started_at": "",
-            "finished_at": "",
-            "message": "Noch keine technische Analyse gestartet.",
-            "recent_errors": [],
+            "running": False, "scope": "", "total": 0, "completed": 0,
+            "probed": 0, "cached": 0, "errors": 0, "current": "",
+            "started_at": "", "finished_at": "",
+            "message": "Noch keine technische Analyse gestartet.", "recent_errors": [],
         }
 
     @staticmethod
@@ -58,13 +46,8 @@ class LibraryProbeManager:
             if not exists:
                 continue
             try:
-                candidates = root.rglob("*")
-                for path in candidates:
-                    try:
-                        relative = path.relative_to(root)
-                    except ValueError:
-                        continue
-                    if any(part.startswith(".") or part.startswith("_") for part in relative.parts[:-1]):
+                for path in root.rglob("*"):
+                    if is_ignored_media_path(path, root=root):
                         continue
                     try:
                         is_file = path.is_file()
@@ -82,18 +65,11 @@ class LibraryProbeManager:
         completed = int(state.get("completed") or 0)
         state["percent"] = round((completed / total) * 100, 1) if total else 0.0
         state["ffprobe_enabled"] = self.settings.ffprobe_enabled
-        # UI aliases retained for the live status widget.
         state["analyzed"] = int(state.get("probed") or 0)
         state["current_file"] = str(state.get("current") or "")
         return state
 
-    async def start(
-        self,
-        *,
-        item_id: str | None = None,
-        item_path: Path | None = None,
-        force: bool = False,
-    ) -> bool:
+    async def start(self, *, item_id: str | None = None, item_path: Path | None = None, force: bool = False) -> bool:
         if not self.settings.ffprobe_enabled:
             self._state["message"] = "FFprobe ist deaktiviert."
             return False
@@ -102,7 +78,6 @@ class LibraryProbeManager:
             return False
         if self._task and not self._task.done():
             return False
-
         if item_path is not None:
             roots = (Path(item_path).resolve(),)
             scope = Path(item_path).name
@@ -113,18 +88,10 @@ class LibraryProbeManager:
             roots = (item.path,)
             scope = item.title
         else:
-            roots = (
-                self.settings.movie_root,
-                self.settings.tv_root,
-                self.settings.anime_root,
-            )
+            roots = (self.settings.movie_root, self.settings.tv_root, self.settings.anime_root)
             scope = "gesamte Mediathek"
-
         self._cancel = asyncio.Event()
-        self._task = asyncio.create_task(
-            self._run(roots=roots, scope=scope, force=force),
-            name="medialab-library-ffprobe",
-        )
+        self._task = asyncio.create_task(self._run(roots=roots, scope=scope, force=force), name="medialab-library-ffprobe")
         return True
 
     async def start_paths(self, paths: list[Path], *, force: bool = True) -> bool:
@@ -133,12 +100,12 @@ class LibraryProbeManager:
             return False
         if self._task and not self._task.done():
             return False
-        allowed_roots = tuple(path.resolve() for path in (
-            self.settings.movie_root, self.settings.tv_root, self.settings.anime_root
-        ))
+        allowed_roots = tuple(path.resolve() for path in (self.settings.movie_root, self.settings.tv_root, self.settings.anime_root))
         safe_paths: list[Path] = []
         for candidate in paths:
             resolved = Path(candidate).resolve()
+            if is_ignored_media_path(resolved):
+                continue
             if any(root == resolved or root in resolved.parents for root in allowed_roots):
                 safe_paths.append(resolved)
         if not safe_paths:
@@ -163,26 +130,18 @@ class LibraryProbeManager:
 
     async def _run(self, *, roots: tuple[Path, ...], scope: str, force: bool, explicit_paths: list[Path] | None = None) -> None:
         self._state = {
-            "running": True,
-            "scope": scope,
-            "total": 0,
-            "completed": 0,
-            "probed": 0,
-            "cached": 0,
-            "errors": 0,
-            "current": "",
-            "started_at": _now(),
-            "finished_at": "",
-            "message": "Videodateien werden gesucht …",
-            "recent_errors": [],
+            "running": True, "scope": scope, "total": 0, "completed": 0,
+            "probed": 0, "cached": 0, "errors": 0, "current": "",
+            "started_at": _now(), "finished_at": "",
+            "message": "Videodateien werden gesucht …", "recent_errors": [],
         }
         try:
             paths = list(explicit_paths) if explicit_paths is not None else await asyncio.to_thread(self._video_paths, roots)
+            paths = [path for path in paths if not is_ignored_media_path(path)]
             self._state["total"] = len(paths)
             if not paths:
                 self._state["message"] = "Keine Videodateien gefunden."
                 return
-
             queue: asyncio.Queue[Path] = asyncio.Queue()
             for path in paths:
                 queue.put_nowait(path)
@@ -215,15 +174,10 @@ class LibraryProbeManager:
                         LOGGER.exception("Unexpected library probe error for %s", path)
                     finally:
                         self._state["completed"] += 1
-                        self._state["message"] = (
-                            f"{self._state['completed']} von {self._state['total']} Dateien analysiert."
-                        )
+                        self._state["message"] = f"{self._state['completed']} von {self._state['total']} Dateien analysiert."
                         queue.task_done()
 
-            worker_count = min(
-                max(1, self.settings.library_probe_concurrency),
-                max(1, len(paths)),
-            )
+            worker_count = min(max(1, self.settings.library_probe_concurrency), max(1, len(paths)))
             workers = [asyncio.create_task(worker()) for _ in range(worker_count)]
             await asyncio.gather(*workers)
             if self._cancel.is_set():
