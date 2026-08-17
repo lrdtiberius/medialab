@@ -1,8 +1,8 @@
 FROM python:3.12-slim-bookworm
 
-ARG BUILD_ID=medialab-0.4.0-20260817-r1
+ARG BUILD_ID=medialab-0.4.1-20260817-r1
 LABEL org.opencontainers.image.title="MediaLab" \
-      org.opencontainers.image.version="0.4.0" \
+      org.opencontainers.image.version="0.4.1" \
       org.opencontainers.image.revision="${BUILD_ID}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,14 +18,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-ADD medialab-0.4.0-build.tar.gz /app/
+ADD medialab-0.4.1-build.tar.gz /app/
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r /app/requirements.txt \
     && cp /app/entrypoint.sh /usr/local/bin/medialab-entrypoint \
     && chmod 0755 /usr/local/bin/medialab-entrypoint \
     && mkdir -p /data /media \
     && ffprobe -version >/dev/null \
-    && python -c "from app import __version__; assert __version__ == '0.4.0', __version__"
+    && python -c "from app import __version__; assert __version__ == '0.4.1', __version__"
 
 EXPOSE 8099
 VOLUME ["/data"]
