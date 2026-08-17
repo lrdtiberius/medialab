@@ -19,26 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Reconstruct source archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat bootstrap-xz/source.part.00 \
-              bootstrap-xz/source.part.01 \
-              bootstrap-xz/source.part.02 \
-              bootstrap-xz/source.part.03 \
-              bootstrap-xz/source.part.04 \
-              bootstrap-xz/source.part.04b \
-              bootstrap-xz/source.part.05 \
-              bootstrap-xz/source.part.06 \
-              bootstrap-xz/source.part.07 > /tmp/medialab.b64
-          test "$(wc -c < /tmp/medialab.b64)" -eq 86936
-          base64 -d /tmp/medialab.b64 > /tmp/medialab-source-0.4.0.tar.xz
-          echo 'afba848b8251f22ea675ab5b2dbaae82bd96dda260f27ef670f91d7995d7a2a5  /tmp/medialab-source-0.4.0.tar.xz' | sha256sum -c -
-          mkdir -p /tmp/medialab-src
-          tar -xJf /tmp/medialab-source-0.4.0.tar.xz -C /tmp/medialab-src
-
-      - name: Install and test
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -47,28 +28,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd /tmp/medialab-src
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
           pytest -q
           python -m compileall -q app
-
-      - name: Publish source tree
-        shell: bash
-        run: |
-          set -euo pipefail
-          rsync -a --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            /tmp/medialab-src/ ./
-          rm -rf bootstrap-xz bootstrap-medialab bootstrap-medialab-small
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m 'Publish MediaLab 0.4.0 source'
-            git push origin main
-          fi
 
       - name: Build release assets
         shell: bash
@@ -94,15 +57,12 @@ jobs:
             medialab-portainer-upload-0.4.0.tar.gz \
             > medialab-0.4.0-SHA256SUMS.txt
 
-      - name: Create release v0.4.0
+      - name: Replace release v0.4.0
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git fetch origin main --tags
-          git checkout main
-          git pull --ff-only origin main
           if gh release view v0.4.0 >/dev/null 2>&1; then
             gh release delete v0.4.0 --yes --cleanup-tag || true
           fi
@@ -110,36 +70,34 @@ jobs:
           git push origin :refs/tags/v0.4.0 2>/dev/null || true
           git tag -a v0.4.0 -m 'MediaLab 0.4.0'
           git push origin v0.4.0
+
           cat > /tmp/release-notes.md <<'EOF'
           ## MediaLab 0.4.0
 
-          Media Ingest heißt ab dieser Version **MediaLab**.
-
-          ### Neu
-          - sichere Watchfolder-Verarbeitung: Dateien in `New` werden erst verarbeitet, wenn Größe und Änderungszeit über mehrere Prüfungen stabil sind
-          - zusätzlicher Mindestabstand zur letzten Dateiänderung und Lesetest vor FFprobe/TMDb
-          - besonders für große 4K-Dateien und langsame NFS-Kopiervorgänge geeignet
-          - Technikanalyse-Fehler sind unter `/library/errors` sichtbar und auswählbar
-          - fehlgeschlagene Dateien können einzeln oder gesammelt erneut analysiert werden
-          - kurzes rotierendes Web-Log unter `/log`
-          - Branding, Image und Container auf **MediaLab** umgestellt
-          - bestehendes `media_ingest_data` bleibt kompatibel, damit Verlauf und SQLite-Daten erhalten bleiben
-
-          ### Portainer: nur eine Datei nötig
-          Für **Images → Build a new image → Upload** wird nur noch diese Datei benötigt:
+          ### Portainer – empfohlen: nur eine Datei
+          Für **Images → Build a new image → Upload** wird nur benötigt:
 
           `medialab-portainer-upload-0.4.0.tar.gz`
 
-          Sie enthält den `Dockerfile` und das Build-Archiv bereits im korrekten Build-Kontext.
+          Das Archiv enthält bereits `Dockerfile` und Build-Archiv im richtigen Build-Kontext.
+
+          ### Neu in 0.4.0
+          - sichere Watchfolder-Verarbeitung für große Kopiervorgänge nach `New`
+          - FFprobe startet erst nach mehrfach bestätigter Dateistabilität
+          - Technikanalyse-Fehler unter `/library/errors` sichtbar und erneut auswählbar
+          - kurzes rotierendes Web-Log unter `/log`
+          - Branding auf **MediaLab**
+          - bestehendes `media_ingest_data` bleibt kompatibel
 
           ### Weitere Assets
           - `medialab-portainer-0.4.0.zip` – vollständiges Portainer-Paket
-          - `medialab-0.4.0-build.tar.gz` – Build-Archiv für Web-Editor/manuelle Builds
-          - `medialab-0.4.0-SHA256SUMS.txt` – Prüfsummen
+          - `medialab-0.4.0-build.tar.gz` – für Web-Editor/manuelle Builds
+          - `medialab-0.4.0-SHA256SUMS.txt` – SHA-256-Prüfsummen
 
           Footer: **by Lrd.Tiberius**  
           Support: https://www.paypal.com/paypalme/SebastianM207
           EOF
+
           gh release create v0.4.0 \
             medialab-portainer-upload-0.4.0.tar.gz \
             medialab-portainer-0.4.0.zip \
