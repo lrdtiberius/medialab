@@ -28,6 +28,7 @@ jobs:
               bootstrap-xz/source.part.02 \
               bootstrap-xz/source.part.03 \
               bootstrap-xz/source.part.04 \
+              bootstrap-xz/source.part.04b \
               bootstrap-xz/source.part.05 \
               bootstrap-xz/source.part.06 \
               bootstrap-xz/source.part.07 > /tmp/medialab.b64
