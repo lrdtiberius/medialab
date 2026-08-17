@@ -25,12 +25,7 @@ def _int(name: str, default: int, minimum: int | None = None) -> int:
     return value
 
 
-def _float(
-    name: str,
-    default: float,
-    minimum: float | None = None,
-    maximum: float | None = None,
-) -> float:
+def _float(name: str, default: float, minimum: float | None = None, maximum: float | None = None) -> float:
     raw = os.getenv(name)
     value = default if raw is None else float(raw)
     if minimum is not None and value < minimum:
@@ -53,13 +48,10 @@ def _strip_optional_quotes(value: str) -> str:
 
 
 def _read_credentials_file(path: Path) -> dict[str, str]:
-    """Read a small dotenv-style file without logging credentials."""
-
     try:
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     except (FileNotFoundError, IsADirectoryError, PermissionError, OSError):
         return {}
-
     values: dict[str, str] = {}
     for raw_line in lines:
         line = raw_line.strip()
@@ -71,9 +63,8 @@ def _read_credentials_file(path: Path) -> dict[str, str]:
             continue
         name, value = line.split("=", 1)
         name = name.strip()
-        if name not in _TMDB_CREDENTIAL_NAMES:
-            continue
-        values[name] = _strip_optional_quotes(value)
+        if name in _TMDB_CREDENTIAL_NAMES:
+            values[name] = _strip_optional_quotes(value)
     return values
 
 
@@ -91,7 +82,6 @@ def _tmdb_credentials(media_root: Path, inbox_root: Path) -> tuple[str, str, Pat
             (inbox_root / "_config" / "tmdb.env").resolve(),
             (inbox_root / "_config" / "tmdb.txt").resolve(),
         ]
-
     selected_path = candidates[0]
     first_existing: Path | None = None
     file_values: dict[str, str] = {}
@@ -110,13 +100,8 @@ def _tmdb_credentials(media_root: Path, inbox_root: Path) -> tuple[str, str, Pat
     else:
         if first_existing is not None:
             selected_path = first_existing
-
-    read_token = file_values.get("TMDB_READ_TOKEN", "").strip()
-    api_key = file_values.get("TMDB_API_KEY", "").strip()
-    if not read_token:
-        read_token = os.getenv("TMDB_READ_TOKEN", "").strip()
-    if not api_key:
-        api_key = os.getenv("TMDB_API_KEY", "").strip()
+    read_token = file_values.get("TMDB_READ_TOKEN", "").strip() or os.getenv("TMDB_READ_TOKEN", "").strip()
+    api_key = file_values.get("TMDB_API_KEY", "").strip() or os.getenv("TMDB_API_KEY", "").strip()
     return read_token, api_key, selected_path
 
 
@@ -126,7 +111,6 @@ class Settings:
     app_version: str
     build_id: str
     app_port: int
-
     media_root: Path
     inbox_root: Path
     movie_root: Path
@@ -135,14 +119,12 @@ class Settings:
     data_root: Path
     database_path: Path
     staging_root: Path
-
     tmdb_read_token: str = field(repr=False)
     tmdb_api_key: str = field(repr=False)
     tmdb_credentials_file: Path
     tmdb_language: str
     tmdb_fallback_language: str
     tmdb_region: str
-
     scan_interval_seconds: int
     file_stable_seconds: int
     file_stable_min_checks: int
@@ -151,10 +133,8 @@ class Settings:
     auto_match_margin: float
     auto_process: bool
     dry_run: bool
-
     anime_auto_detect: bool
     anime_languages: tuple[str, ...]
-
     overwrite_existing: bool
     overwrite_metadata: bool
     create_nfo: bool
@@ -163,16 +143,13 @@ class Settings:
     create_derived_artwork: bool
     keep_technical_tags: bool
     tv_keep_technical_tags: bool
-
     ffprobe_enabled: bool
     ffprobe_path: str
     ffprobe_timeout_seconds: int
     library_probe_concurrency: int
     library_probe_auto_start: bool
-
     author_name: str
     support_url: str
-
     web_username: str
     web_password: str
     log_level: str
@@ -191,11 +168,7 @@ class Settings:
 
     @property
     def libraries(self) -> dict[str, Path]:
-        return {
-            "movies": self.movie_root,
-            "series": self.tv_root,
-            "anime": self.anime_root,
-        }
+        return {"movies": self.movie_root, "series": self.tv_root, "anime": self.anime_root}
 
     def library_path(self, library: str) -> Path:
         try:
@@ -212,21 +185,12 @@ def load_settings() -> Settings:
     tv_name = os.getenv("TV_DIR", "Serien").strip("/")
     anime_name = os.getenv("ANIME_DIR", "Animes").strip("/")
     inbox_root = (media_root / inbox_name).resolve()
-    tmdb_read_token, tmdb_api_key, tmdb_credentials_file = _tmdb_credentials(
-        media_root, inbox_root
-    )
+    tmdb_read_token, tmdb_api_key, tmdb_credentials_file = _tmdb_credentials(media_root, inbox_root)
 
     settings = Settings(
-        app_name=os.getenv("APP_NAME", "MediaLab").strip() or "MediaLab",
-        # The displayed version comes from the source package, not from an
-        # environment variable. This prevents an old source archive from
-        # masquerading as a newer release merely because the Dockerfile tag
-        # changed.
+        app_name="MediaLab",
         app_version=__version__,
-        build_id=(
-            os.getenv("BUILD_ID", "medialab-0.4.0-source").strip()
-            or "medialab-0.4.0-source"
-        ),
+        build_id=(os.getenv("BUILD_ID", "medialab-0.4.1-source").strip() or "medialab-0.4.1-source"),
         app_port=_int("APP_PORT", 8099, 1),
         media_root=media_root,
         inbox_root=inbox_root,
@@ -265,14 +229,8 @@ def load_settings() -> Settings:
         ffprobe_timeout_seconds=_int("FFPROBE_TIMEOUT_SECONDS", 90, 5),
         library_probe_concurrency=_int("LIBRARY_PROBE_CONCURRENCY", 2, 1),
         library_probe_auto_start=_bool("LIBRARY_PROBE_AUTO_START", False),
-        author_name=(
-            os.getenv("AUTHOR_NAME")
-            or os.getenv("APP_AUTHOR")
-            or "Lrd.Tiberius"
-        ).strip() or "Lrd.Tiberius",
-        support_url=os.getenv(
-            "SUPPORT_URL", "https://www.paypal.com/paypalme/SebastianM207"
-        ).strip(),
+        author_name=(os.getenv("AUTHOR_NAME") or os.getenv("APP_AUTHOR") or "Lrd.Tiberius").strip() or "Lrd.Tiberius",
+        support_url=os.getenv("SUPPORT_URL", "https://www.paypal.com/paypalme/SebastianM207").strip(),
         web_username=os.getenv("WEB_USERNAME", "").strip(),
         web_password=os.getenv("WEB_PASSWORD", "").strip(),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper().strip() or "INFO",
@@ -281,24 +239,14 @@ def load_settings() -> Settings:
         library_page_size=_int("LIBRARY_PAGE_SIZE", 60, 12),
         log_tail_lines=_int("LOG_TAIL_LINES", 200, 20),
     )
-
     if bool(settings.web_username) != bool(settings.web_password):
-        raise ValueError(
-            "WEB_USERNAME and WEB_PASSWORD must either both be set or both be empty"
-        )
+        raise ValueError("WEB_USERNAME and WEB_PASSWORD must either both be set or both be empty")
     if settings.auto_match_margin > settings.auto_match_threshold:
         raise ValueError("AUTO_MATCH_MARGIN cannot be greater than AUTO_MATCH_THRESHOLD")
-
-    roots = [
-        settings.inbox_root,
-        settings.movie_root,
-        settings.tv_root,
-        settings.anime_root,
-    ]
+    roots = [settings.inbox_root, settings.movie_root, settings.tv_root, settings.anime_root]
     if len(set(roots)) != len(roots):
         raise ValueError("New, Filme, Serien and Animes must use different directories")
     for root in roots:
         if settings.media_root not in root.parents:
             raise ValueError(f"Configured directory is outside MEDIA_ROOT: {root}")
-
     return settings
