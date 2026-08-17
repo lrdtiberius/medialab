@@ -34,6 +34,22 @@ class LibraryProbeManager:
             "started_at": "", "finished_at": "",
             "message": "Noch keine technische Analyse gestartet.", "recent_errors": [],
         }
+        removed = self._prune_ignored_probe_cache()
+        if removed:
+            LOGGER.info("Removed %s ignored/system file(s) from ffprobe cache", removed)
+
+    def _prune_ignored_probe_cache(self) -> int:
+        database = self.media_probe.database
+        rows = database.list_media_probes(limit=100000)
+        ignored = [row["file_path"] for row in rows if is_ignored_media_path(Path(row["file_path"]))]
+        if not ignored:
+            return 0
+        with database._connect() as connection:
+            connection.executemany(
+                "DELETE FROM media_probe_cache WHERE source_path = ?",
+                [(path,) for path in ignored],
+            )
+        return len(ignored)
 
     @staticmethod
     def _video_paths(roots: tuple[Path, ...]) -> list[Path]:
@@ -136,6 +152,7 @@ class LibraryProbeManager:
             "message": "Videodateien werden gesucht …", "recent_errors": [],
         }
         try:
+            self._prune_ignored_probe_cache()
             paths = list(explicit_paths) if explicit_paths is not None else await asyncio.to_thread(self._video_paths, roots)
             paths = [path for path in paths if not is_ignored_media_path(path)]
             self._state["total"] = len(paths)
