@@ -1,0 +1,107 @@
+name: Publish MediaLab 0.4.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-medialab-0.4.1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test MediaLab
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          pytest -q
+          python -m compileall -q app
+          python - <<'PY'
+          from app import __version__
+          assert __version__ == '0.4.1', __version__
+          PY
+
+      - name: Build release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf medialab-0.4.1-build.tar.gz app requirements.txt entrypoint.sh
+
+          rm -rf /tmp/medialab-upload /tmp/medialab-portainer
+          mkdir -p /tmp/medialab-upload /tmp/medialab-portainer
+
+          cp Dockerfile.portainer /tmp/medialab-upload/Dockerfile
+          cp medialab-0.4.1-build.tar.gz /tmp/medialab-upload/
+          tar -C /tmp/medialab-upload -czf medialab-portainer-upload-0.4.1.tar.gz Dockerfile medialab-0.4.1-build.tar.gz
+
+          cp Dockerfile.portainer portainer-stack.yml stack.env.example tmdb.env.example README.md /tmp/medialab-portainer/
+          cp medialab-0.4.1-build.tar.gz /tmp/medialab-portainer/
+          (cd /tmp/medialab-portainer && zip -qr "$GITHUB_WORKSPACE/medialab-portainer-0.4.1.zip" .)
+
+          sha256sum \
+            medialab-portainer-upload-0.4.1.tar.gz \
+            medialab-portainer-0.4.1.zip \
+            medialab-0.4.1-build.tar.gz \
+            > medialab-0.4.1-SHA256SUMS.txt
+
+      - name: Create release v0.4.1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.4.1 >/dev/null 2>&1; then
+            gh release delete v0.4.1 --yes --cleanup-tag || true
+          fi
+          git tag -d v0.4.1 2>/dev/null || true
+          git push origin :refs/tags/v0.4.1 2>/dev/null || true
+          git tag -a v0.4.1 -m 'MediaLab 0.4.1'
+          git push origin v0.4.1
+
+          cat > /tmp/release-notes.md <<'EOF'
+          ## MediaLab 0.4.1
+
+          Wartungsrelease für die Technikanalyse und das MediaLab-Branding.
+
+          ### Behoben
+          - macOS-AppleDouble-Dateien (`._*`) werden nicht mehr als Medien behandelt
+          - `.DS_Store`, `.Spotlight-V100`, `.Trashes`, `.fseventsd`, `@eaDir`, `#recycle`, `Thumbs.db` und `desktop.ini` werden ignoriert
+          - bereits gespeicherte FFprobe-Cacheeinträge solcher Systemdateien werden beim Start entfernt
+          - dadurch zeigt der Fehlerzähler nur noch echte Medienfehler
+          - Watchfolder `New` ignoriert dieselben Systemdateien
+          - Branding ist fest auf **MediaLab** gesetzt; alte `APP_NAME=Media Ingest`-Umgebungswerte überschreiben den Namen nicht mehr
+
+          ### Portainer
+          Empfohlen ist genau eine Datei:
+
+          `medialab-portainer-upload-0.4.1.tar.gz`
+
+          In Portainer: **Images → Build a new image → Upload**, Image-Name `medialab:0.4.1`, Archiv auswählen, Build starten.
+
+          Footer: **by Lrd.Tiberius**  
+          Support: https://www.paypal.com/paypalme/SebastianM207
+          EOF
+
+          gh release create v0.4.1 \
+            medialab-portainer-upload-0.4.1.tar.gz \
+            medialab-portainer-0.4.1.zip \
+            medialab-0.4.1-build.tar.gz \
+            medialab-0.4.1-SHA256SUMS.txt \
+            --title 'MediaLab 0.4.1' \
+            --notes-file /tmp/release-notes.md
