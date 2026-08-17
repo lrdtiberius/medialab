@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Diagnose</p>
+    <h1>Kurzes Log</h1>
+    <p>Die letzten {{ settings.log_tail_lines }} Zeilen aus dem laufenden MediaLab-Log. Die Datei rotiert automatisch bei 1 MB.</p>
+  </div>
+  <div class="heading-actions"><a class="button" href="/log">Aktualisieren</a></div>
+</section>
+<section class="panel">
+  <p class="path-text">{{ log_path }}</p>
+  <pre class="log-view">{% if log_lines %}{{ log_lines|join('\n') }}{% else %}Noch keine Logeinträge vorhanden.{% endif %}</pre>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+MediaLab 0.4.0
+==============
+- Projektname von Media Ingest auf MediaLab umgestellt.
+- Schutz vor unvollständigen Kopien in New: mehrere stabile Scans, Ruhezeit nach mtime und Rand-Lesetest.
+- FFprobe-Fehler sind unter /library/errors vollständig sichtbar und auswählbar.
+- Ausgewählte FFprobe-Fehler können gesammelt erneut analysiert werden.
+- Kurzes, rotierendes Diagnose-Log unter /log und /data/medialab.log.
+- Bestehende media-ingest.sqlite3 wird beim Upgrade automatisch weiterverwendet.
+- Docker-/Portainer-Namen und Build-Artefakte auf MediaLab 0.4.0 umgestellt.
+
+Media Ingest 0.3.1
+==================
+- FFprobe-Mediathek, Mediathek-Ansicht, Bereinigung veralteter Inbox-Einträge.
+- Footer by Lrd.Tiberius und Buy-me-a-coffee-Link.

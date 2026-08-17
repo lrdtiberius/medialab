@@ -1,0 +1,7 @@
+# Datei umbenennen in tmdb.txt und auf der Synology hier ablegen:
+# video/_config/tmdb.txt
+#
+# Gleiches KEY=WERT-Format wie bei der .env-Datei.
+# Mindestens EIN Wert muss gesetzt sein. Der Read Access Token wird bevorzugt.
+TMDB_READ_TOKEN=HIER_DEIN_API_READ_ACCESS_TOKEN
+TMDB_API_KEY=HIER_DEIN_V3_API_KEY

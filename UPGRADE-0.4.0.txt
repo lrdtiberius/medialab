@@ -1,0 +1,17 @@
+MEDIALAB 0.4.0 - UPDATE VON MEDIA INGEST 0.3.1
+================================================
+
+1. Neues Image als medialab:0.4.0 bauen.
+2. Dockerfile.portainer und medialab-0.4.0-build.tar.gz verwenden.
+3. Im Stack Service/Container auf medialab umstellen.
+4. Das vorhandene Docker-Volume media_ingest_data NICHT löschen. Es wird absichtlich weiterverwendet.
+5. Die bestehende /data/media-ingest.sqlite3 wird automatisch erkannt und weitergenutzt.
+6. TMDb-Datei unverändert unter /volume1/video/_config/tmdb.env lassen.
+7. Schutz für New ist standardmäßig aktiv:
+   SCAN_INTERVAL_SECONDS=20
+   FILE_STABLE_SECONDS=120
+   FILE_STABLE_MIN_CHECKS=3
+   FILE_STABLE_MTIME_SECONDS=60
+8. FFprobe-Fehler: http://HOST:8099/library/errors
+9. Kurzes Log:     http://HOST:8099/log
+10. Erst mit DRY_RUN=true testen.

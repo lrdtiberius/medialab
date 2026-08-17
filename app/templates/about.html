@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Über · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Über</p>
+    <h1>{{ settings.app_name }}</h1>
+    <p>Ein schlanker Importdienst für deinen bestehenden NAS-Aufbau.</p>
+  </div>
+</section>
+
+<div class="about-grid">
+  <section class="panel prose">
+    <h2>Ordnerregeln</h2>
+    <pre>{{ settings.media_root }}/
+├── New/
+│   ├── Filme/     optionaler eindeutiger Hinweis
+│   ├── Serien/    optionaler eindeutiger Hinweis
+│   └── Animes/    optionaler eindeutiger Hinweis
+├── Filme/
+├── Serien/
+└── Animes/</pre>
+    <p>Dateien direkt in <code>New</code> werden anhand des Dateinamens und der TMDB-Daten einsortiert. Japanische Animationsfilme werden nach <code>Animes</code> getrennt. Serien und einzelne Folgen landen ausnahmslos in <code>Serien</code>, auch Anime-Serien und Dateien aus <code>New/Animes</code>.</p>
+  </section>
+
+  <section class="panel prose">
+    <h2>Sicherheitsregeln</h2>
+    <ul>
+      <li>Keine Überschreibung vorhandener Videodateien, solange <code>OVERWRITE_EXISTING=false</code> gilt.</li>
+      <li>Unsichere Treffer bleiben in <code>New</code> und warten auf manuelle Auswahl.</li>
+      <li>Im Testbetrieb werden nur Zielpfade berechnet.</li>
+      <li>Die vorhandenen Bibliotheken werden nicht neu organisiert.</li>
+    </ul>
+  </section>
+
+  <section class="panel prose">
+    <h2>TMDB-Zugangsdaten</h2>
+    <p>Der Dienst liest Token und API-Key beim Start aus <code>{{ settings.tmdb_credentials_file }}</code>. Bevorzugt wird <code>_config/tmdb.env</code> außerhalb des Watchfolders; ältere Installationen unter <code>New/_config</code> bleiben kompatibel.</p>
+    <pre>TMDB_READ_TOKEN=dein_read_access_token
+TMDB_API_KEY=dein_api_key</pre>
+    <p>Nach einer Änderung der Datei den Container neu starten. Ein Wert genügt; der Read Access Token wird bevorzugt.</p>
+  </section>
+
+
+  <section class="panel prose">
+    <h2>Technische Analyse</h2>
+    <p>FFprobe liest Auflösung, Video-Codec, HDR, Bildrate, Farbtiefe sowie alle Audio- und internen Untertitelspuren direkt aus den Mediendateien. Die Ergebnisse werden anhand von Dateigröße und Änderungszeit in SQLite zwischengespeichert.</p>
+    <p>Die Bestandsanalyse wird in der <a href="/library">Mediathek</a> manuell gestartet und verändert keine Video-, NFO- oder Bilddateien.</p>
+  </section>
+
+  <section class="panel prose">
+    <h2>Mediathek und Stream-Analyse</h2>
+    <p>Unter <code>/library</code> werden vorhandene Filme, Serien und Anime-Filme schreibgeschützt angezeigt. Titel, Jahr, IDs, Handlung, Genres und Bewertungen stammen aus den lokalen <code>movie.nfo</code>- beziehungsweise <code>tvshow.nfo</code>-Dateien.</p>
+    <p>Über „Technik analysieren“ liest ffprobe reale Auflösung, Video-Codec, HDR, Bildrate sowie alle Audio- und internen Untertitelspuren aus. Die Ergebnisse werden zwischengespeichert; unveränderte Dateien müssen nicht erneut geprüft werden.</p>
+    <p>Poster und Hintergründe werden direkt aus den vorhandenen Medienordnern geladen. Ein manueller Neuaufbau des Mediathek-Caches ist über „Bestand neu einlesen“ möglich.</p>
+  </section>
+
+  <section class="panel prose">
+    <h2>Projekt</h2>
+    <p>MediaLab {{ settings.app_version }} · by <strong>{{ settings.author_name }}</strong></p>
+    <p><small>Build: <code>{{ settings.build_id }}</code></small></p>
+    {% if settings.support_url %}<p><a class="button" href="{{ settings.support_url }}" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a></p>{% endif %}
+  </section>
+</div>
+
+<section class="panel tmdb-credit">
+  <img src="{{ url_for('static', path='tmdb-logo.svg') }}" alt="TMDB Logo">
+  <div>
+    <h2>TMDB-Credits</h2>
+    <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    <p>Das TMDB-Logo wird unverändert zur Kennzeichnung der verwendeten Datenquelle angezeigt.</p>
+  </div>
+</section>
+{% endblock %}

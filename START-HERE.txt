@@ -1,0 +1,80 @@
+MEDIALAB 0.4.0 - UPDATE FUER PORTAINER
+==========================================
+
+NEU IN DIESER VERSION
+- Echte Analyse mit FFprobe: Aufloesung, Video-Codec, HDR, Bildrate,
+  alle Audiospuren, Sprachen, Kanalformate und interne Untertitel.
+- Bestandsanalyse in der Mediathek mit SQLite-Cache.
+- Manuell umbenannte oder geloeschte Dateien verschwinden aus der
+  New-Uebersicht; die neue Datei wird beim Scan neu angelegt.
+- Footer wieder mit "by Lrd.Tiberius".
+- "Buy me a coffee" verlinkt auf:
+  https://www.paypal.com/paypalme/SebastianM207
+
+DEIN SETUP
+- Portainer-Endpoint: local auf dem AM06Pro
+- Externes Volume: Videos
+- NFS-Ziel: Synology /volume1/video
+- PUID=1026
+- PGID=100
+- Weboberflaeche: http://192.168.188.94:8099
+- Serien und Folgen immer nach Serien
+- Animes nur fuer Anime-Filme
+
+1. IMAGE BAUEN
+   Portainer -> Images -> Build a new image
+   Name: medialab:0.4.0
+   Methode: Web editor
+   Inhalt aus Dockerfile.portainer einfuegen.
+   Ueber Select files medialab-0.4.0-build.tar.gz hinzufuegen.
+   Build the image anklicken.
+
+2. STACK AKTUALISIEREN
+   Portainer -> Stacks -> mediaingest -> Editor
+   Image-Zeile:
+
+   image: medialab:0.4.0
+
+   Diese Werte beibehalten/setzen:
+   PUID=1026
+   PGID=100
+   WEB_PORT=8099
+   TMDB_CREDENTIALS_FILE=
+   DRY_RUN=true
+   FFPROBE_ENABLED=true
+   FFPROBE_TIMEOUT_SECONDS=90
+   LIBRARY_PROBE_CONCURRENCY=2
+   LIBRARY_PROBE_AUTO_START=false
+
+   Update the stack anklicken.
+   Pull latest image NICHT aktivieren; das Image ist lokal gebaut.
+
+3. NICHT LOESCHEN
+   - Volume Videos
+   - Volume media_ingest_data
+   - /volume1/video/_config/tmdb.env
+
+4. KONTROLLE
+   http://192.168.188.94:8099/health
+
+   Erwartet:
+   - version: 0.4.0
+   - build_id: medialab-0.4.0-20260817-r1
+   - checks.ffprobe_available: true
+   - features.library: true
+
+   Im Footer muss "by Lrd.Tiberius" stehen und der Coffee-Button muss
+   auf den PayPal-Link zeigen.
+
+5. TECHNIK-CACHE AUFBAUEN
+   Mediathek oeffnen:
+   http://192.168.188.94:8099/library
+
+   "Technik analysieren" anklicken. Der erste Lauf ueber NFS kann je nach
+   Anzahl und Groesse der Dateien dauern. Spaetere Laeufe verwenden den Cache.
+   Es wird nichts transkodiert oder an den Videodateien geaendert.
+
+6. UMBENANNTE DATEI
+   Nach einem manuellen Umbenennen im Ordner New die Uebersicht neu laden
+   oder "Jetzt scannen" anklicken. Der alte Eintrag wird entfernt; der neue
+   Dateiname erscheint als eigener Eintrag.

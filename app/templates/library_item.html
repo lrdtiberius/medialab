@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}{{ details.item.title }} · Mediathek · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div class="detail-topline">
+  <a class="back-link" href="/library">← Zur Mediathek</a>
+  <form method="post" action="/library/{{ details.item.item_id }}/analyze">
+    <input type="hidden" name="force" value="false">
+    <button class="button compact" type="submit" {% if technical_scan.running or not ffprobe_available %}disabled{% endif %}>Diesen Ordner analysieren</button>
+  </form>
+</div>
+{% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+
+<section class="catalog-detail-hero {% if details.item.has_poster %}with-poster{% endif %}" {% if details.item.backdrop_path %}style="--detail-backdrop: url('/library/{{ details.item.item_id }}/artwork/backdrop')"{% endif %}>
+  <div class="detail-backdrop-shade"></div>
+  <div class="catalog-detail-content">
+    <div class="detail-poster">
+      {% if details.item.has_poster %}
+      <img src="/library/{{ details.item.item_id }}/artwork/poster" alt="Poster von {{ details.item.title }}">
+      {% else %}
+      <div class="media-poster-placeholder large">
+        <strong>{{ 'TV' if details.item.media_type == 'tv' else 'FILM' }}</strong>
+        <small>Kein Poster</small>
+      </div>
+      {% endif %}
+    </div>
+    <div class="detail-copy">
+      <div class="badges">
+        <span class="library-pill library-{{ details.item.library }}">{{ library_labels[details.item.library] }}</span>
+        <span class="soft-pill">{{ media_type_labels[details.item.media_type] }}</span>
+        {% if details.item.rating is not none %}<span class="soft-pill rating-pill">★ {{ '%.1f' | format(details.item.rating) }}</span>{% endif %}
+      </div>
+      <h1>{{ details.item.title }}{% if details.item.year %} <span class="title-year">({{ details.item.year }})</span>{% endif %}</h1>
+      {% if details.item.original_title and details.item.original_title != details.item.title %}
+      <p class="original-title detail-original">{{ details.item.original_title }}</p>
+      {% endif %}
+      {% if details.item.overview %}<p class="detail-overview">{{ details.item.overview }}</p>{% else %}<p class="detail-overview muted-copy">Keine Inhaltsangabe in der lokalen NFO vorhanden.</p>{% endif %}
+      {% if details.item.genres %}
+      <div class="genre-row">{% for genre in details.item.genres %}<span class="soft-pill">{{ genre }}</span>{% endfor %}</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="detail-metric-grid">
+  <div class="detail-metric"><span>Videos</span><strong>{{ details.video_count }}</strong></div>
+  {% if details.item.media_type == 'tv' %}
+  <div class="detail-metric"><span>Staffeln</span><strong>{{ details.season_count }}</strong></div>
+  <div class="detail-metric"><span>Folgen</span><strong>{{ details.episode_count }}</strong></div>
+  {% endif %}
+  <div class="detail-metric"><span>Untertitel</span><strong>{{ details.subtitle_count }}</strong></div>
+  <div class="detail-metric"><span>NFO-Dateien</span><strong>{{ details.nfo_count }}</strong></div>
+  <div class="detail-metric"><span>Artwork-Dateien</span><strong>{{ details.artwork_count }}</strong></div>
+  <div class="detail-metric"><span>Gesamtgröße</span><strong>{{ details.total_size | filesize }}</strong></div>
+</section>
+
+<section class="panel technical-overview-panel">
+  <div class="panel-header">
+    <div>
+      <h2>Video- und Audiotechnik</h2>
+      <p>FFprobe-Daten aus {{ details.technical.probed_files }} von {{ details.video_count }} Videodatei(en).</p>
+    </div>
+    {% if details.technical.summary %}<span class="soft-pill tech-summary-pill">{{ details.technical.summary }}</span>{% endif %}
+  </div>
+  {% if details.technical.probed_files %}
+  <dl class="details technical-details">
+    <div><dt>Auflösungen</dt><dd>{{ details.technical.resolutions | join(' / ') or '–' }}</dd></div>
+    <div><dt>Video-Codecs</dt><dd>{{ details.technical.video_codecs | join(' / ') or '–' }}</dd></div>
+    <div><dt>HDR</dt><dd>{{ details.technical.hdr_formats | join(' / ') or 'SDR / nicht erkannt' }}</dd></div>
+    <div><dt>Audiosprachen</dt><dd>{{ details.technical.audio_languages | join(' / ') or '–' }}</dd></div>
+    <div><dt>Audio-Codecs</dt><dd>{{ details.technical.audio_codecs | join(' / ') or '–' }}</dd></div>
+    <div><dt>Kanalformate</dt><dd>{{ details.technical.channel_layouts | join(' / ') or '–' }}</dd></div>
+    <div class="wide"><dt>Gefundene Audiospuren</dt><dd><div class="stream-chip-row">{% for profile in details.technical.audio_profiles %}<span class="soft-pill">{{ profile }}</span>{% endfor %}</div></dd></div>
+  </dl>
+  {% else %}
+  <div class="empty-state compact-empty">
+    <p>Noch keine technischen Daten im Cache. Starte die Analyse für diesen Ordner oder für die gesamte Mediathek.</p>
+  </div>
+  {% endif %}
+  {% if details.unprobed_video_count %}<div class="notice neutral">{{ details.unprobed_video_count }} Videodatei(en) sind noch nicht analysiert oder wurden seit der letzten Analyse geändert.</div>{% endif %}
+</section>
+
+<div class="detail-grid catalog-detail-grid">
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Lokale Metadaten</h2>
+        <p>Aus dem vorhandenen Ordner und der Haupt-NFO gelesen.</p>
+      </div>
+    </div>
+    <dl class="details catalog-metadata-details">
+      <div><dt>Titel</dt><dd>{{ details.item.title }}</dd></div>
+      <div><dt>Jahr</dt><dd>{{ details.item.year or '–' }}</dd></div>
+      <div><dt>Premiere</dt><dd>{{ details.item.premiered or '–' }}</dd></div>
+      <div><dt>Laufzeit</dt><dd>{% if details.item.runtime_minutes %}{{ details.item.runtime_minutes }} Minuten{% else %}–{% endif %}</dd></div>
+      <div><dt>TMDB</dt><dd>{{ details.item.tmdb_id or '–' }}</dd></div>
+      <div><dt>IMDb</dt><dd>{{ details.item.imdb_id or '–' }}</dd></div>
+      <div class="wide"><dt>Bibliotheksordner</dt><dd class="path-text"><code>{{ details.item.path }}</code></dd></div>
+      <div class="wide"><dt>Haupt-NFO</dt><dd class="path-text">{% if details.item.nfo_path %}<code>{{ details.item.nfo_path.name }}</code>{% else %}<span class="warning-text">Nicht vorhanden</span>{% endif %}</dd></div>
+      <div><dt>Ordner geändert</dt><dd>{{ details.item.modified_at | localdate }}</dd></div>
+      <div><dt>Poster</dt><dd>{{ 'Vorhanden' if details.item.has_poster else 'Fehlt' }}</dd></div>
+      <div><dt>Hintergrund</dt><dd>{{ 'Vorhanden' if details.item.backdrop_path else 'Fehlt' }}</dd></div>
+    </dl>
+  </section>
+
+  <aside class="panel">
+    <h2>Status</h2>
+    <div class="metadata-status-list">
+      <div><span>Haupt-NFO</span>{% if details.item.has_nfo %}<strong class="ok-text">vorhanden</strong>{% else %}<strong class="warning-text">fehlt</strong>{% endif %}</div>
+      <div><span>Poster</span>{% if details.item.has_poster %}<strong class="ok-text">vorhanden</strong>{% else %}<strong class="warning-text">fehlt</strong>{% endif %}</div>
+      <div><span>Hintergrund</span>{% if details.item.backdrop_path %}<strong class="ok-text">vorhanden</strong>{% else %}<strong class="warning-text">fehlt</strong>{% endif %}</div>
+    </div>
+    <p class="readonly-note">Diese Ansicht ist bewusst schreibgeschützt. Sie zeigt deinen vorhandenen Bestand an, ohne NFOs, Bilder oder Videodateien zu verändern.</p>
+  </aside>
+</div>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h2>Dateien im Ordner</h2>
+      <p>{{ details.files | length }} Datei(en), rekursiv einschließlich Staffelordnern.</p>
+    </div>
+  </div>
+  {% if details.files %}
+  <div class="table-wrap">
+    <table class="file-table">
+      <thead>
+        <tr>
+          <th>Datei</th>
+          <th>Typ</th>
+          <th>Technik</th>
+          <th>Größe</th>
+          <th>Geändert</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for file in details.files %}
+        <tr>
+          <td><strong>{{ file.name }}</strong>{% if file.relative_path != file.name %}<small>{{ file.relative_path }}</small>{% endif %}</td>
+          <td>
+            {% if file.kind == 'video' %}<span class="soft-pill file-video">Video</span>
+            {% elif file.kind == 'subtitle' %}<span class="soft-pill file-subtitle">Untertitel</span>
+            {% elif file.kind == 'nfo' %}<span class="soft-pill file-nfo">NFO</span>
+            {% elif file.kind == 'artwork' %}<span class="soft-pill file-artwork">Artwork</span>
+            {% else %}<span class="soft-pill">Sonstiges</span>{% endif %}
+          </td>
+          <td>
+            {% if file.kind == 'video' and file.technical_summary %}
+              <details class="inline-tech-details"><summary>{{ file.technical_summary }}</summary>
+                {% set stream = file.technical_info %}
+                {% if stream.video %}<small>Video: {{ stream.video.width }}×{{ stream.video.height }} · {{ stream.video.codec }}{% if stream.video.hdr %} · {{ stream.video.hdr }}{% endif %}</small>{% endif %}
+                {% for track in stream.audio %}<small>Audio {{ loop.index }}: {{ track.summary }}</small>{% endfor %}
+                {% for track in stream.subtitles %}<small>Untertitel {{ loop.index }}: {{ track.summary }}</small>{% endfor %}
+              </details>
+            {% elif file.kind == 'video' %}<span class="muted-copy">nicht analysiert</span>{% else %}–{% endif %}
+          </td>
+          <td>{{ file.size_bytes | filesize }}</td>
+          <td>{{ file.modified_at | localdate }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if details.files_truncated %}<div class="notice neutral">Die Dateiliste ist auf 500 Einträge begrenzt. Zähler und Gesamtgröße berücksichtigen trotzdem alle Dateien.</div>{% endif %}
+  {% else %}
+  <div class="empty-state"><p>Der Ordner enthält keine lesbaren Dateien.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

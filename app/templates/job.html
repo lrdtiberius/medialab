@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block title %}{{ job.source_name }} · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading compact-heading">
+  <div>
+    <a class="back-link" href="/">← Zur Übersicht</a>
+    <p class="eyebrow">Import #{{ job.id }}</p>
+    <h1>{{ job.source_name }}</h1>
+    <p class="path-text">{{ job.source_path }}</p>
+  </div>
+  <span class="status-pill large status-{{ job.status }}">{{ status_labels.get(job.status, job.status) }}</span>
+</section>
+
+{% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+{% if job.message %}<div class="notice neutral">{{ job.message }}</div>{% endif %}
+
+<div class="detail-grid">
+  <section class="panel">
+    <div class="panel-header"><h2>Dateianalyse</h2></div>
+    <dl class="details">
+      <div><dt>Titel</dt><dd>{{ job.parsed_title }}</dd></div>
+      <div><dt>Jahr</dt><dd>{{ job.parsed_year or '–' }}</dd></div>
+      <div><dt>Typ</dt><dd>{{ media_type_labels.get(job.media_type, job.media_type) }}</dd></div>
+      <div><dt>Staffel / Episode</dt><dd>{% if job.season is not none and job.episode is not none %}{{ job.season }} / {{ job.episode }}{% if job.episode_end %}–{{ job.episode_end }}{% endif %}{% else %}–{% endif %}</dd></div>
+      <div><dt>Technik</dt><dd>{{ job.technical_tags | join(' · ') if job.technical_tags else '–' }}</dd></div>
+      <div><dt>Zielbereich</dt><dd>{% if job.library %}<span class="library-pill library-{{ job.library }}">{{ library_labels[job.library] }}</span>{% else %}Noch offen{% endif %}</dd></div>
+      {% if job.target_path %}<div class="wide"><dt>Geplanter Zielpfad</dt><dd><code>{{ job.target_path }}</code></dd></div>{% endif %}
+    </dl>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header"><h2>Aktionen</h2></div>
+    <div class="button-stack">
+      {% if job.status not in ['processed', 'processing'] %}
+      <form method="post" action="/jobs/{{ job.id }}/retry"><button class="button" type="submit">Automatisch erneut prüfen</button></form>
+      <form method="post" action="/jobs/{{ job.id }}/ignore"><button class="button ghost" type="submit">Ignorieren</button></form>
+      {% endif %}
+    </div>
+  </section>
+</div>
+
+{% set tech = job.technical_info or {} %}
+{% if tech.error %}
+<div class="notice error"><strong>FFprobe:</strong> {{ tech.error }}</div>
+{% endif %}
+{% if tech.video or tech.audio or tech.subtitles %}
+<section class="panel technical-panel">
+  <div class="panel-header">
+    <div>
+      <h2>Echte Stream-Analyse</h2>
+      <p>Direkt mit FFprobe aus der Mediendatei gelesen – unabhängig vom Dateinamen.</p>
+    </div>
+    {% if tech.summary %}<span class="soft-pill tech-summary-pill">{{ tech.summary }}</span>{% endif %}
+  </div>
+
+  {% if tech.video %}
+  <h3>Video</h3>
+  <dl class="details technical-details">
+    <div><dt>Auflösung</dt><dd>{{ tech.video.width or '–' }} × {{ tech.video.height or '–' }}{% if tech.video.resolution %} · {{ tech.video.resolution }}{% endif %}</dd></div>
+    <div><dt>Codec</dt><dd>{{ tech.video.codec or '–' }}{% if tech.video.profile %} · {{ tech.video.profile }}{% endif %}</dd></div>
+    <div><dt>HDR</dt><dd>{{ tech.video.hdr or 'SDR / nicht erkannt' }}</dd></div>
+    <div><dt>Farbtiefe</dt><dd>{% if tech.video.bit_depth %}{{ tech.video.bit_depth }} Bit{% else %}–{% endif %}</dd></div>
+    <div><dt>Bildrate</dt><dd>{% if tech.video.frame_rate %}{{ tech.video.frame_rate }} fps{% else %}–{% endif %}</dd></div>
+    <div><dt>Pixelformat</dt><dd>{{ tech.video.pixel_format or '–' }}</dd></div>
+    <div><dt>Laufzeit</dt><dd>{{ tech.duration_seconds | duration }}</dd></div>
+    <div><dt>Gesamtbitrate</dt><dd>{{ tech.overall_bitrate_label or '–' }}</dd></div>
+  </dl>
+  {% endif %}
+
+  {% if tech.audio %}
+  <h3>Audiospuren</h3>
+  <div class="table-wrap">
+    <table class="stream-table">
+      <thead><tr><th>#</th><th>Sprache</th><th>Codec</th><th>Kanäle</th><th>Titel</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for track in tech.audio %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><strong>{{ track.language or '–' }}</strong></td>
+          <td>{{ track.codec or '–' }}{% if track.atmos %} · Atmos{% endif %}{% if track.profile %}<small>{{ track.profile }}</small>{% endif %}</td>
+          <td>{{ track.channel_label or '–' }}{% if track.channel_layout %}<small>{{ track.channel_layout }}</small>{% endif %}</td>
+          <td>{{ track.title or '–' }}</td>
+          <td>{% if track.default %}<span class="soft-pill success-pill">Standard</span>{% endif %}{% if track.forced %}<span class="soft-pill">Forced</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if tech.subtitles %}
+  <details class="stream-details">
+    <summary>{{ tech.subtitles | length }} interne Untertitelspur(en)</summary>
+    <div class="stream-chip-row">
+      {% for track in tech.subtitles %}<span class="soft-pill">{{ track.summary or track.codec }}</span>{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</section>
+{% elif settings.ffprobe_enabled %}
+<section class="panel">
+  <h2>Stream-Analyse</h2>
+  <p class="muted-copy">Noch keine FFprobe-Daten vorhanden. Mit „Automatisch erneut prüfen“ wird die Datei neu analysiert.</p>
+</section>
+{% endif %}
+
+{% if job.tmdb_id and job.status in ['matched', 'error'] %}
+<section class="panel selected-match">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Ausgewählter Treffer</p>
+      <h2>{{ job.tmdb_title or job.parsed_title }}{% if job.tmdb_year %} ({{ job.tmdb_year }}){% endif %}</h2>
+    </div>
+    {% if job.match_score is not none %}<span class="score">{{ (job.match_score * 100) | round | int }} %</span>{% endif %}
+  </div>
+  <form class="process-form" method="post" action="/jobs/{{ job.id }}/process">
+    <input type="hidden" name="tmdb_id" value="{{ job.tmdb_id }}">
+    <input type="hidden" name="media_type" value="{{ job.media_type }}">
+    {% if job.media_type == 'movie' %}
+    <label>Zielbibliothek
+      <select name="library">
+        {% for key in ['movies', 'anime'] %}<option value="{{ key }}" {% if job.library == key %}selected{% endif %}>{{ library_labels[key] }}</option>{% endfor %}
+      </select>
+    </label>
+    {% else %}
+    <input type="hidden" name="library" value="series">
+    <label>Zielbibliothek <span class="fixed-value">Serien</span></label>
+    {% endif %}
+    {% if job.media_type == 'tv' %}
+    <label>Staffel <input type="number" min="0" name="season" value="{{ job.season if job.season is not none else '' }}" required></label>
+    <label>Episode <input type="number" min="0" name="episode" value="{{ job.episode if job.episode is not none else '' }}" required></label>
+    <label>Bis Episode <input type="number" min="0" name="episode_end" value="{{ job.episode_end if job.episode_end is not none else '' }}"></label>
+    {% endif %}
+    <button class="button primary" type="submit">{% if settings.dry_run %}Zielpfad simulieren{% else %}Jetzt verarbeiten{% endif %}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if job.status != 'processed' %}
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h2>Manuelle TMDB-Suche</h2>
+      <p>Suchbegriff, Typ und Zielbereich lassen sich korrigieren. Eine TMDB-ID muss nicht eingegeben werden.</p>
+    </div>
+  </div>
+  <form class="search-form" method="post" action="/jobs/{{ job.id }}/search">
+    <label class="grow">Suchbegriff
+      <input type="text" name="query" value="{{ job.search_query or job.parsed_title }}" required autofocus>
+    </label>
+    <label>Jahr
+      <input type="number" name="year" min="1900" max="2100" value="{{ job.parsed_year or '' }}">
+    </label>
+    <label>Als
+      <select name="media_type" data-media-type-select>
+        <option value="movie" {% if job.media_type == 'movie' %}selected{% endif %}>Film</option>
+        <option value="tv" {% if job.media_type == 'tv' %}selected{% endif %}>Serie</option>
+      </select>
+    </label>
+    <label>Ziel
+      <select name="library" data-media-library-select>
+        {% set current_library = job.library or ('series' if job.media_type == 'tv' else 'movies') %}
+        <option value="movies" data-allowed-for="movie" {% if current_library == 'movies' %}selected{% endif %}>Filme</option>
+        <option value="series" data-allowed-for="tv" {% if current_library == 'series' %}selected{% endif %}>Serien</option>
+        <option value="anime" data-allowed-for="movie" {% if current_library == 'anime' %}selected{% endif %}>Animes</option>
+      </select>
+    </label>
+    <button class="button primary" type="submit">Suchen</button>
+  </form>
+</section>
+{% endif %}
+
+{% if results is not none %}
+<section class="results-section">
+  <div class="results-heading"><h2>Suchergebnisse</h2><span>{{ results | length }} Treffer</span></div>
+  <div class="result-grid">
+    {% for candidate in results %}
+    <article class="result-card">
+      <div class="poster-wrap">
+        {% if candidate.poster_url %}<img src="{{ candidate.poster_url }}" alt="Poster zu {{ candidate.title }}" loading="lazy">{% else %}<div class="poster-placeholder">Kein Poster</div>{% endif %}
+      </div>
+      <div class="result-body">
+        <div class="result-title-row">
+          <div>
+            <h3>{{ candidate.title }}</h3>
+            <p>{{ candidate.year or 'Jahr unbekannt' }} · {{ media_type_labels[candidate.media_type] }}</p>
+          </div>
+          <span class="score">{{ candidate.score_percent }} %</span>
+        </div>
+        {% if candidate.original_title and candidate.original_title != candidate.title %}<p class="original-title">Original: {{ candidate.original_title }}</p>{% endif %}
+        <p class="overview">{{ candidate.overview or 'Keine Beschreibung vorhanden.' }}</p>
+        <div class="badges">
+          {% if candidate.is_anime %}<span class="library-pill library-anime">Anime erkannt</span>{% endif %}
+          {% if candidate.original_language %}<span class="soft-pill">{{ candidate.original_language | upper }}</span>{% endif %}
+        </div>
+        <form class="candidate-form" method="post" action="/jobs/{{ job.id }}/process">
+          <input type="hidden" name="tmdb_id" value="{{ candidate.id }}">
+          <input type="hidden" name="media_type" value="{{ candidate.media_type }}">
+          {% if candidate.media_type == 'movie' %}
+          <label>Ziel
+            <select name="library">
+              {% set suggested = 'anime' if candidate.is_anime else ('anime' if job.library == 'anime' else 'movies') %}
+              {% for key in ['movies', 'anime'] %}<option value="{{ key }}" {% if suggested == key %}selected{% endif %}>{{ library_labels[key] }}</option>{% endfor %}
+            </select>
+          </label>
+          {% else %}
+          <input type="hidden" name="library" value="series">
+          <label>Ziel <span class="fixed-value">Serien</span></label>
+          {% endif %}
+          {% if candidate.media_type == 'tv' %}
+          <label>Staffel <input type="number" name="season" min="0" value="{{ job.season if job.season is not none else 1 }}" required></label>
+          <label>Episode <input type="number" name="episode" min="0" value="{{ job.episode if job.episode is not none else '' }}" required></label>
+          <label>Bis <input type="number" name="episode_end" min="0" value="{{ job.episode_end if job.episode_end is not none else '' }}"></label>
+          {% else %}
+          <input type="hidden" name="season" value=""><input type="hidden" name="episode" value=""><input type="hidden" name="episode_end" value="">
+          {% endif %}
+          <button class="button primary" type="submit">Auswählen und {% if settings.dry_run %}simulieren{% else %}verarbeiten{% endif %}</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

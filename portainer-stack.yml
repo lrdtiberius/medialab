@@ -1,0 +1,81 @@
+services:
+  medialab:
+    image: medialab:0.4.0
+    pull_policy: never
+    container_name: medialab
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8099}:8099"
+    environment:
+      PUID: "${PUID:-1026}"
+      PGID: "${PGID:-100}"
+      TZ: "${TZ:-Europe/Berlin}"
+
+      APP_NAME: "MediaLab"
+      BUILD_ID: "medialab-0.4.0-20260817-r1"
+      APP_PORT: "8099"
+      MEDIA_ROOT: "/media"
+      DATA_ROOT: "/data"
+
+      INBOX_DIR: "New"
+      MOVIE_DIR: "Filme"
+      TV_DIR: "Serien"
+      ANIME_DIR: "Animes"
+
+      TMDB_CREDENTIALS_FILE: "${TMDB_CREDENTIALS_FILE:-}"
+      TMDB_LANGUAGE: "de-DE"
+      TMDB_FALLBACK_LANGUAGE: "en-US"
+      TMDB_REGION: "DE"
+
+      AUTO_PROCESS: "${AUTO_PROCESS:-true}"
+      DRY_RUN: "${DRY_RUN:-true}"
+      SCAN_INTERVAL_SECONDS: "${SCAN_INTERVAL_SECONDS:-20}"
+      FILE_STABLE_SECONDS: "${FILE_STABLE_SECONDS:-120}"
+      FILE_STABLE_MIN_CHECKS: "${FILE_STABLE_MIN_CHECKS:-3}"
+      FILE_STABLE_MTIME_SECONDS: "${FILE_STABLE_MTIME_SECONDS:-60}"
+      AUTO_MATCH_THRESHOLD: "0.92"
+      AUTO_MATCH_MARGIN: "0.08"
+
+      ANIME_AUTO_DETECT: "true"
+      ANIME_LANGUAGES: "ja"
+      CREATE_NFO: "true"
+      DUPLICATE_MOVIE_NFO: "true"
+      DOWNLOAD_ARTWORK: "true"
+      CREATE_DERIVED_ARTWORK: "true"
+      KEEP_TECHNICAL_TAGS: "true"
+      TV_KEEP_TECHNICAL_TAGS: "false"
+      OVERWRITE_EXISTING: "false"
+      OVERWRITE_METADATA: "false"
+
+      WEB_USERNAME: "${WEB_USERNAME:-}"
+      WEB_PASSWORD: "${WEB_PASSWORD:-}"
+      LIBRARY_CACHE_SECONDS: "${LIBRARY_CACHE_SECONDS:-600}"
+      LIBRARY_PAGE_SIZE: "${LIBRARY_PAGE_SIZE:-60}"
+
+      FFPROBE_ENABLED: "${FFPROBE_ENABLED:-true}"
+      FFPROBE_PATH: "ffprobe"
+      FFPROBE_TIMEOUT_SECONDS: "${FFPROBE_TIMEOUT_SECONDS:-90}"
+      LIBRARY_PROBE_CONCURRENCY: "${LIBRARY_PROBE_CONCURRENCY:-2}"
+      LIBRARY_PROBE_AUTO_START: "${LIBRARY_PROBE_AUTO_START:-false}"
+
+      AUTHOR_NAME: "Lrd.Tiberius"
+      SUPPORT_URL: "https://www.paypal.com/paypalme/SebastianM207"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      LOG_TAIL_LINES: "${LOG_TAIL_LINES:-200}"
+    volumes:
+      - type: volume
+        source: videos_nas
+        target: /media
+      # Legacy-Volume-Name bewusst beibehalten, damit ein Update keine Daten verliert.
+      - medialab_data:/data
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+
+volumes:
+  videos_nas:
+    external: true
+    name: Videos
+  medialab_data:
+    name: media_ingest_data

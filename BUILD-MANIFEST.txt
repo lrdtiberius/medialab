@@ -1,0 +1,5 @@
+MediaLab build manifest
+version=0.4.0
+build_id=medialab-0.4.0-20260817-r1
+source_archive=medialab-0.4.0-build.tar.gz
+features=library,ffprobe,copy_completion_guard,probe_error_browser,log_view,stale_inbox_cleanup,custom_footer,paypal_support

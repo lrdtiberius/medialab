@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ settings.app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}?v={{ settings.build_id }}">
+  <script defer src="{{ url_for('static', path='app.js') }}?v={{ settings.build_id }}"></script>
+</head>
+<body data-build-id="{{ settings.build_id }}">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark">ML</span>
+      <span>
+        <strong>{{ settings.app_name }}</strong>
+        <small>Watchfolder · Mediathek · TMDB · NFO · Artwork</small>
+      </span>
+    </a>
+    <nav>
+      <a class="{% if request.url.path == '/' or request.url.path.startswith('/jobs') %}active{% endif %}" href="/">Übersicht</a>
+      <a class="{% if request.url.path.startswith('/library') %}active{% endif %}" href="/library">Mediathek</a>
+      <a class="{% if request.url.path == '/log' %}active{% endif %}" href="/log">Log</a>
+      <a class="{% if request.url.path == '/about' %}active{% endif %}" href="/about">Über</a>
+    </nav>
+  </header>
+
+  {% if settings.dry_run %}
+  <div class="global-warning">
+    <strong>Testbetrieb aktiv:</strong> DRY_RUN=true. Es werden Zielpfade berechnet, aber keine Mediendateien verschoben.
+  </div>
+  {% endif %}
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <span class="footer-credit" title="Build {{ settings.build_id }}">{{ settings.app_name }} {{ settings.app_version }} · by <strong>{{ settings.author_name }}</strong></span>
+    <span class="footer-meta">Metadaten und Bilder von TMDB.</span>
+    {% if settings.support_url %}
+    <a class="coffee-button" href="{{ settings.support_url }}" target="_blank" rel="noopener noreferrer">☕ Buy me a coffee</a>
+    {% endif %}
+  </footer>
+</body>
+</html>

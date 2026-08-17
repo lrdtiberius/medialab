@@ -1,0 +1,23 @@
+services:
+  medialab:
+    build:
+      context: .
+      args:
+        BUILD_ID: "medialab-0.4.0-20260817-r1"
+    image: medialab:0.4.0
+    container_name: medialab
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8099}:8099"
+    env_file:
+      - stack.env
+    volumes:
+      - "${VIDEOS_HOST_PATH:-/mnt/Videos}:/media"
+      - media_ingest_data:/data
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+
+volumes:
+  media_ingest_data:

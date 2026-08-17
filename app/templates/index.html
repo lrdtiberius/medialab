@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Übersicht · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">NAS-Import</p>
+    <h1>Neue Medien</h1>
+    <p>Dateien aus <code>{{ settings.inbox_root }}</code> werden erkannt und einsortiert: normale Filme nach <code>Filme</code>, Anime-Filme nach <code>Animes</code> und alle Folgen nach <code>Serien</code>.</p>
+  </div>
+  <form method="post" action="/scan">
+    <button class="button primary" type="submit">Jetzt scannen</button>
+  </form>
+</section>
+
+{% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+{% if not settings.tmdb_configured %}
+<div class="notice error"><strong>TMDB fehlt:</strong> Lege <code>{{ settings.tmdb_credentials_file }}</code> mit <code>TMDB_READ_TOKEN</code> und/oder <code>TMDB_API_KEY</code> an und starte den Container neu.</div>
+{% endif %}
+
+<section class="status-grid">
+  {% for key in ['waiting', 'unresolved', 'matched', 'processed', 'error'] %}
+  <a class="status-card status-{{ key }} {% if selected_status == key %}active{% endif %}" href="/?status={{ key }}">
+    <span>{{ status_labels[key] }}</span>
+    <strong>{{ counts[key] }}</strong>
+  </a>
+  {% endfor %}
+  <a class="status-card" href="/">
+    <span>Alle anzeigen</span>
+    <strong>{{ counts.values() | sum }}</strong>
+  </a>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h2>{% if selected_status %}{{ status_labels[selected_status] }}{% else %}Letzte Einträge{% endif %}</h2>
+      <p>Bei unsicheren Treffern öffnet ein Klick die manuelle TMDB-Suche.</p>
+    </div>
+  </div>
+
+  {% if jobs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Datei</th>
+          <th>Erkannt als</th>
+          <th>Ziel</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td>
+            <strong>{{ job.source_name }}</strong>
+            <small>{{ job.size_bytes | filesize }}{% if job.technical_info and job.technical_info.summary %} · {{ job.technical_info.summary }}{% endif %}</small>
+          </td>
+          <td>
+            {{ job.parsed_title }}{% if job.parsed_year %} ({{ job.parsed_year }}){% endif %}
+            <small>
+              {{ media_type_labels.get(job.media_type, job.media_type) }}
+              {% if job.media_type == 'tv' and job.season is not none and job.episode is not none %}
+                · S{{ '%02d' | format(job.season) }}E{{ '%02d' | format(job.episode) }}
+              {% endif %}
+            </small>
+          </td>
+          <td>
+            {% if job.library %}<span class="library-pill library-{{ job.library }}">{{ library_labels[job.library] }}</span>{% else %}–{% endif %}
+            {% if job.target_path %}<small title="{{ job.target_path }}">{{ job.target_path | basename }}</small>{% endif %}
+          </td>
+          <td>
+            <span class="status-pill status-{{ job.status }}">{{ status_labels.get(job.status, job.status) }}</span>
+            {% if job.message %}<small>{{ job.message }}</small>{% endif %}
+          </td>
+          <td class="actions"><a class="button compact" href="/jobs/{{ job.id }}">Öffnen</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <h3>Keine Einträge</h3>
+    <p>Lege eine Videodatei in <code>New</code> oder optional in <code>New/Filme</code>, <code>New/Serien</code> beziehungsweise <code>New/Animes</code>. Episoden landen unabhängig vom Eingangsordner immer in <code>Serien</code>.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

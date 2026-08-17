@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Mediathek · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading library-heading">
+  <div>
+    <p class="eyebrow">Bestand auf dem NAS</p>
+    <h1>Mediathek</h1>
+    <p>Read-only-Übersicht über alle vorhandenen Ordner in <code>Filme</code>, <code>Serien</code> und <code>Animes</code>. Titel, NFO-Daten und Poster werden direkt von deinem NAS gelesen.</p>
+  </div>
+  <div class="heading-actions">
+    <form method="post" action="/library/refresh">
+      <button class="button" type="submit">Bestand neu einlesen</button>
+    </form>
+    <form method="post" action="/library/analyze">
+      <input type="hidden" name="force" value="false">
+      <button class="button primary" type="submit" {% if technical_scan.running or not ffprobe_available %}disabled{% endif %}>Technik analysieren</button>
+    </form>
+  </div>
+</section>
+
+{% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+{% if catalog_error %}<div class="notice error"><strong>Teilweise nicht lesbar:</strong> {{ catalog_error }}</div>{% endif %}
+{% if not ffprobe_available %}<div class="notice error"><strong>FFprobe fehlt:</strong> Das Image enthält kein ausführbares ffprobe. Baue Version {{ settings.app_version }} neu.</div>{% endif %}
+
+<section class="panel technical-scan-panel" data-technical-scan data-running="{{ 'true' if technical_scan.running else 'false' }}">
+  <div class="panel-header">
+    <div>
+      <h2>Technische Medienanalyse</h2>
+      <p>Auflösung, Video-Codec, HDR sowie alle Audio- und internen Untertitelspuren werden direkt aus den Dateien gelesen und in SQLite zwischengespeichert.</p>
+    </div>
+    <span class="soft-pill"><strong data-probe-count>{{ probe_counts.successful }}</strong> Datei(en) im Cache</span>
+  </div>
+  <div class="scan-progress-row">
+    <div class="scan-progress-track"><span data-scan-progress style="width: {{ technical_scan.percent }}%"></span></div>
+    <strong data-scan-percent>{{ technical_scan.percent }} %</strong>
+  </div>
+  <div class="scan-status-grid">
+    <span>Status <strong data-scan-state>{{ 'läuft' if technical_scan.running else 'bereit' }}</strong></span>
+    <span>Fortschritt <strong><span data-scan-completed>{{ technical_scan.completed }}</span> / <span data-scan-total>{{ technical_scan.total }}</span></strong></span>
+    <span>Neu analysiert <strong data-scan-analyzed>{{ technical_scan.analyzed }}</strong></span>
+    <span>Aus Cache <strong data-scan-cached>{{ technical_scan.cached }}</strong></span>
+    <span>Fehler <strong data-scan-errors>{{ technical_scan.errors }}</strong> <a class="mini-link" href="/library/errors">anzeigen</a></span>
+  </div>
+  <p class="path-text scan-current" data-scan-current>{{ technical_scan.current_file }}</p>
+  <p class="muted-copy" data-scan-message>{{ technical_scan.message }}</p>
+  <p class="muted-copy">Fehlerdetails können über <a href="/library/errors">Fehler anzeigen</a> einzeln ausgewählt und erneut analysiert werden.</p>
+  <p class="muted-copy">Der erste Lauf kann bei einer großen NFS-Mediathek länger dauern. Unveränderte Dateien werden bei späteren Läufen sofort aus dem Cache übernommen.</p>
+</section>
+
+<section class="status-grid library-stats">
+  <a class="status-card {% if selected_library == 'all' and selected_quality == 'all' %}active{% endif %}" href="/library">
+    <span>Alle Titel</span>
+    <strong>{{ counts.all }}</strong>
+  </a>
+  <a class="status-card library-movies {% if selected_library == 'movies' %}active{% endif %}" href="/library?library=movies">
+    <span>Filme</span>
+    <strong>{{ counts.movies }}</strong>
+  </a>
+  <a class="status-card library-series {% if selected_library == 'series' %}active{% endif %}" href="/library?library=series">
+    <span>Serien</span>
+    <strong>{{ counts.series }}</strong>
+  </a>
+  <a class="status-card library-anime {% if selected_library == 'anime' %}active{% endif %}" href="/library?library=anime">
+    <span>Anime-Filme</span>
+    <strong>{{ counts.anime }}</strong>
+  </a>
+  <a class="status-card status-unresolved {% if selected_quality == 'missing_nfo' %}active{% endif %}" href="/library?quality=missing_nfo">
+    <span>Ohne Haupt-NFO</span>
+    <strong>{{ missing_nfo }}</strong>
+  </a>
+  <a class="status-card status-error {% if selected_quality == 'missing_poster' %}active{% endif %}" href="/library?quality=missing_poster">
+    <span>Ohne Poster</span>
+    <strong>{{ missing_poster }}</strong>
+  </a>
+  <a class="status-card status-error" href="/library/errors">
+    <span>Technik-Fehler</span>
+    <strong>{{ probe_counts.errors }}</strong>
+  </a>
+</section>
+
+<section class="panel catalog-controls">
+  <form method="get" action="/library" class="catalog-filter-form">
+    <label class="grow">Suche
+      <input type="search" name="q" value="{{ q }}" placeholder="Titel, Jahr, Genre oder Ordner …" autocomplete="off">
+    </label>
+    <label>Bereich
+      <select name="library">
+        <option value="all" {% if selected_library == 'all' %}selected{% endif %}>Alle Bereiche</option>
+        {% for key, label in library_labels.items() %}
+        <option value="{{ key }}" {% if selected_library == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Metadaten
+      <select name="quality">
+        {% for key, label in quality_labels.items() %}
+        <option value="{{ key }}" {% if selected_quality == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Sortierung
+      <select name="sort">
+        {% for key, label in sort_labels.items() %}
+        <option value="{{ key }}" {% if selected_sort == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Ansicht
+      <select name="view">
+        <option value="grid" {% if selected_view == 'grid' %}selected{% endif %}>Poster</option>
+        <option value="list" {% if selected_view == 'list' %}selected{% endif %}>Liste</option>
+      </select>
+    </label>
+    <label>Pro Seite
+      <select name="page_size">
+        {% for size in page_size_choices %}
+        <option value="{{ size }}" {% if page_size == size %}selected{% endif %}>{{ size }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button class="button primary" type="submit">Anzeigen</button>
+      <a class="button ghost" href="/library">Zurücksetzen</a>
+    </div>
+  </form>
+</section>
+
+<section class="catalog-summary">
+  <div>
+    <strong>{{ total }}</strong> Treffer
+    {% if total_pages > 1 %}<span>· Seite {{ page }} von {{ total_pages }}</span>{% endif %}
+  </div>
+  <span class="catalog-readonly">Nur Anzeige – vorhandene Dateien werden nicht verändert.</span>
+</section>
+
+{% if items and selected_view == 'grid' %}
+<section class="media-grid" aria-label="Mediathek als Posterübersicht">
+  {% for item in items %}
+  <article class="media-card">
+    <a class="media-poster" href="/library/{{ item.item_id }}" aria-label="{{ item.title }} öffnen">
+      {% if item.has_poster %}
+      <img src="/library/{{ item.item_id }}/artwork/poster" alt="Poster von {{ item.title }}" loading="lazy">
+      {% else %}
+      <span class="media-poster-placeholder">
+        <strong>{{ 'TV' if item.media_type == 'tv' else 'FILM' }}</strong>
+        <small>Kein Poster</small>
+      </span>
+      {% endif %}
+      <span class="media-library-badge library-{{ item.library }}">{{ library_labels[item.library] }}</span>
+    </a>
+    <div class="media-card-body">
+      <a class="media-title" href="/library/{{ item.item_id }}">{{ item.title }}</a>
+      <div class="media-meta">
+        <span>{{ item.year or 'Jahr unbekannt' }}</span>
+        {% if item.rating is not none %}<span>★ {{ '%.1f' | format(item.rating) }}</span>{% endif %}
+      </div>
+      {% if item.overview %}<p class="media-overview">{{ item.overview }}</p>{% endif %}
+      <div class="media-card-flags">
+        {% if not item.has_nfo %}<span class="soft-pill warning-pill">NFO fehlt</span>{% endif %}
+        {% if not item.has_poster %}<span class="soft-pill warning-pill">Poster fehlt</span>{% endif %}
+        {% if item.technical.summary %}<span class="soft-pill tech-pill" title="{{ item.technical.summary }}">{{ item.technical.summary }}</span>{% else %}<span class="soft-pill muted-pill">Technik offen</span>{% endif %}
+        {% for genre in item.genres[:2] %}<span class="soft-pill">{{ genre }}</span>{% endfor %}
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% elif items %}
+<section class="panel">
+  <div class="table-wrap">
+    <table class="catalog-table">
+      <thead>
+        <tr>
+          <th>Titel</th>
+          <th>Bereich</th>
+          <th>Jahr</th>
+          <th>Bewertung</th>
+          <th>Technik</th>
+          <th>Metadaten</th>
+          <th>Ordner</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>
+            <strong>{{ item.title }}</strong>
+            {% if item.original_title and item.original_title != item.title %}<small>{{ item.original_title }}</small>{% endif %}
+          </td>
+          <td><span class="library-pill library-{{ item.library }}">{{ library_labels[item.library] }}</span></td>
+          <td>{{ item.year or '–' }}</td>
+          <td>{% if item.rating is not none %}★ {{ '%.1f' | format(item.rating) }}{% else %}–{% endif %}</td>
+          <td>{% if item.technical.summary %}<small class="tech-cell" title="{{ item.technical.summary }}">{{ item.technical.summary }}</small>{% else %}<span class="muted-copy">offen</span>{% endif %}</td>
+          <td>
+            {% if item.has_nfo %}<span class="soft-pill success-pill">NFO</span>{% else %}<span class="soft-pill warning-pill">ohne NFO</span>{% endif %}
+            {% if item.has_poster %}<span class="soft-pill success-pill">Poster</span>{% else %}<span class="soft-pill warning-pill">ohne Poster</span>{% endif %}
+          </td>
+          <td><small class="path-cell" title="{{ item.path }}">{{ item.relative_path }}</small></td>
+          <td class="actions"><a class="button compact" href="/library/{{ item.item_id }}">Öffnen</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="panel empty-state">
+  <h2>Keine passenden Titel</h2>
+  <p>Ändere die Suche oder den Filter. Mit „Bestand neu einlesen“ wird die Ordnerstruktur erneut vom NAS geladen.</p>
+</section>
+{% endif %}
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Seitennavigation">
+  {% if previous_url %}<a class="button compact" href="{{ previous_url }}">← Zurück</a>{% else %}<span class="button compact disabled">← Zurück</span>{% endif %}
+  <div class="page-links">
+    {% for number, url in page_links %}
+    <a class="page-link {% if number == page %}active{% endif %}" href="{{ url }}">{{ number }}</a>
+    {% endfor %}
+  </div>
+  {% if next_url %}<a class="button compact" href="{{ next_url }}">Weiter →</a>{% else %}<span class="button compact disabled">Weiter →</span>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

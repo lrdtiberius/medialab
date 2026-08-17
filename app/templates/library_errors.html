@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Technik-Fehler · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">FFprobe</p>
+    <h1>Fehler der Technikanalyse</h1>
+    <p>Hier siehst du jede Datei, bei der FFprobe fehlgeschlagen ist. Du kannst einzelne oder alle Einträge markieren und erneut analysieren.</p>
+  </div>
+  <div class="heading-actions"><a class="button" href="/library">← Mediathek</a></div>
+</section>
+{% if notice %}<div class="notice success">{{ notice }}</div>{% endif %}
+<section class="panel">
+  <div class="panel-header">
+    <div><h2>{{ errors|length }} Fehler</h2><p>Fehler bleiben sichtbar, bis eine erneute Analyse erfolgreich war.</p></div>
+    <span class="soft-pill">Status: {{ 'Analyse läuft' if technical_scan.running else 'bereit' }}</span>
+  </div>
+  {% if errors %}
+  <form method="post" action="/library/errors/retry">
+    <div class="error-toolbar">
+      <label class="check-label"><input type="checkbox" data-select-all> alle auswählen</label>
+      <button class="button primary" type="submit" {% if technical_scan.running %}disabled{% endif %}>Ausgewählte erneut analysieren</button>
+    </div>
+    <div class="table-wrap">
+      <table class="catalog-table error-table">
+        <thead><tr><th></th><th>Datei</th><th>Zeit</th><th>Fehler</th></tr></thead>
+        <tbody>
+          {% for row in errors %}
+          <tr>
+            <td><input type="checkbox" name="path" value="{{ row.file_path }}" data-error-checkbox></td>
+            <td><strong>{{ row.file_path|basename }}</strong><small class="path-cell">{{ row.file_path }}</small></td>
+            <td><small>{{ row.probed_at }}</small></td>
+            <td><code class="error-message">{{ row.error }}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+  {% else %}
+  <div class="empty-state"><h2>Keine FFprobe-Fehler gespeichert</h2><p>Die Technikanalyse ist für alle bisher geprüften Dateien erfolgreich.</p></div>
+  {% endif %}
+</section>
+{% endblock %}
