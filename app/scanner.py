@@ -10,6 +10,7 @@ from typing import Any
 from .config import Settings
 from .db import Database
 from .parser import is_video_file, parse_media_filename
+from .path_filters import is_ignored_media_path
 from .service import MediaService
 
 LOGGER = logging.getLogger(__name__)
@@ -101,11 +102,7 @@ class InboxScanner:
         ready: list[dict[str, Any]] = []
         seen: set[str] = set()
         for path in self.settings.inbox_root.rglob("*"):
-            try:
-                relative = path.relative_to(self.settings.inbox_root)
-            except ValueError:
-                continue
-            if any(part.startswith(".") or part.startswith("_") for part in relative.parts[:-1]):
+            if is_ignored_media_path(path, root=self.settings.inbox_root):
                 continue
             if not is_video_file(path):
                 continue
