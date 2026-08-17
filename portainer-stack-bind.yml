@@ -1,6 +1,6 @@
 services:
   medialab:
-    image: medialab:0.4.0
+    image: medialab:0.4.1
     pull_policy: never
     container_name: medialab
     restart: unless-stopped
@@ -11,7 +11,7 @@ services:
       PGID: "${PGID:-100}"
       TZ: "${TZ:-Europe/Berlin}"
       APP_NAME: "MediaLab"
-      BUILD_ID: "medialab-0.4.0-20260817-r1"
+      BUILD_ID: "medialab-0.4.1-20260817-r1"
       APP_PORT: "8099"
       MEDIA_ROOT: "/media"
       DATA_ROOT: "/data"
