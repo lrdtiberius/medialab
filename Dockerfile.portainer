@@ -1,6 +1,6 @@
 FROM python:3.12-slim-bookworm
 
-ARG BUILD_ID=medialab-0.4.1-20260817-r1
+ARG BUILD_ID=medialab-0.4.1-20260820-r2
 LABEL org.opencontainers.image.title="MediaLab" \
       org.opencontainers.image.version="0.4.1" \
       org.opencontainers.image.revision="${BUILD_ID}"
