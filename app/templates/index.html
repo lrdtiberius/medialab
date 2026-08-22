@@ -24,9 +24,9 @@
     <strong>{{ counts[key] }}</strong>
   </a>
   {% endfor %}
-  <a class="status-card" href="/">
-    <span>Alle anzeigen</span>
-    <strong>{{ counts.values() | sum }}</strong>
+  <a class="status-card {% if not selected_status %}active{% endif %}" href="/">
+    <span>Aktuell</span>
+    <strong>{{ counts['waiting'] + counts['pending'] + counts['matched'] + counts['unresolved'] + counts['processing'] + counts['error'] }}</strong>
   </a>
 </section>
 
@@ -38,6 +38,7 @@
     </div>
   </div>
 
+  {% set ns = namespace(visible=0) %}
   {% if jobs %}
   <div class="table-wrap">
     <table>
@@ -52,6 +53,8 @@
       </thead>
       <tbody>
         {% for job in jobs %}
+        {% if selected_status or job.status not in ['processed', 'ignored'] %}
+        {% set ns.visible = ns.visible + 1 %}
         <tr>
           <td>
             <strong>{{ job.source_name }}</strong>
@@ -76,11 +79,13 @@
           </td>
           <td class="actions"><a class="button compact" href="/jobs/{{ job.id }}">Öffnen</a></td>
         </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
+  {% endif %}
+  {% if not jobs or ns.visible == 0 %}
   <div class="empty-state">
     <h3>Keine Einträge</h3>
     <p>Lege eine Videodatei in <code>New</code> oder optional in <code>New/Filme</code>, <code>New/Serien</code> beziehungsweise <code>New/Animes</code>. Episoden landen unabhängig vom Eingangsordner immer in <code>Serien</code>.</p>
